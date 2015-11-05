@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>test</title>
+</head>
+<body>
+
+<script src="http://85.143.218.29:30030/socket.io/socket.io.js"></script>
+<script>
+  var socket = io.connect('http://85.143.218.29:30030');
+  socket.emit('connection', { my: 'data' });
+  
+  socket.on('total', function (data) {
+    console.log(data);
+    
+  });
+</script>
+
+</body>
+</html> 
