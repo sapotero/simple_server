@@ -1,62 +1,85 @@
 module.exports = function(app, io){
 
+  var path = require('path');
   var fs = require('fs');
   
-  var users = [];
   var url = 'mongodb://85.143.218.29:27017/images';
 
-  var mongodb = require('mongodb');
-      MongoClient = mongodb.MongoClient;
+  var mongodb     = require('mongodb'),
+      Grid        = require('gridfs-stream'),
+      MongoClient = mongodb.MongoClient,
+      db          = new mongodb.Db( 'images', new mongodb.Server("85.143.218.29", 27017) ),
+      gfs;
 
-  function onCollection(err, collection) {
-      var cursor = collection.find({}, { tailable: true, awaitdata: true } ),
-      cursorStream = cursor.stream(),
-      itemsProcessed = 0
+      db.open(function (err) {
+        if (err) return handleError(err);
+        var gfs = Grid(db, mongodb);
 
-      cursorStream.on('data', function (data) {
-          console.log(data);
-          itemsProcessed++;
-      });
-  }
+          function onCollection(err, collection) {
+              var cursor = collection.find({}, { tailable: true, awaitdata: true } ),
+              cursorStream = cursor.stream(),
+              itemsProcessed = 0
 
-  function onConnected(err, db) {
-      db.collection('images', onCollection);
-  }
+              cursorStream.on('data', function (data) {
+                  console.log(data);
+                  itemsProcessed++;
+              });
+          }
 
-  MongoClient.connect(url, onConnected);
+          function onConnected(err, db) {
+              db.collection('images', onCollection);
+          }
 
-// Setup the ready route, and emit talk event.
-  app.io.route('connection', function(req) {
-      users.push[req.io.request.socket.id];
+          MongoClient.connect(url, onConnected);
 
-      console.log(req.io.request.socket.id);
-      req.io.emit('total', {})
-  })
+        // Setup the ready route, and emit talk event.
+          app.io.route('connection', function(req) {
+              req.io.emit('total', {})
+          })
 
-  // Send the client html.
-  app.get('/', function(req, res) {
-      console.log('/');
-      res.sendfile(__dirname + '/index.html')
-  })
+          // Send the client html.
+          app.get('/', function(req, res) {
+              console.log('/');
+              res.sendfile(__dirname + '/index.html')
+          })
 
-  app.post('/upload', function(req, res) {
-      var fstream;
+          app.post('/upload', function(req, res) {
+              var fstream;
 
-      console.log("CAM: " +req.headers['camid']);
+              var camId    = req.headers['camid'];
+              var token    = req.headers['token'];
+              var datetime = req.headers['datetime'];
 
-      console.log(req.io);
-      console.log(io.sockets );
+              console.log("CAM: "  + camId);
+              console.log("CAM: "  + token);
+              console.log("CAM: "  + datetime);
 
-      // app.io.to(users[0]).emit('total', {cam: req.headers['camid']})
+              console.log(req.files);
 
-      req.pipe(req.busboy);
-      req.busboy.on('file', function (fieldname, file, filename) {
-          console.log("Uploading: " + filename); 
-          fstream = fs.createWriteStream(__dirname + '/files/' + filename);
-          file.pipe(fstream);
-          fstream.on('close', function () {
-              res.redirect('back');
+             //  var a = req.pipe(req.busboy);
+             req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
+                  console.log("Uploading: " + filename); 
+                  fstream = fs.createWriteStream(__dirname + '/files/' + filename);
+
+                  var writestream = gfs.createWriteStream({
+                      filename: filename,
+                      mode: "w",
+                      chunkSize: 1024*4,
+                      content_type: mimetype,
+                      root: "fs"
+                  });
+
+                  file.pipe(writestream);
+
+                  writestream.on('close', function () {
+                    res.redirect('back');
+                  });
+
+                  var readstream = gfs.createReadStream({
+                    filename: filename
+                  });
+
+              });
           });
-      });
-  });
+      })
 };
