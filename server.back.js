@@ -43,6 +43,8 @@ module.exports = function(app, io){
               res.sendfile(__dirname + '/index.html')
           })
 
+
+
           app.post('/upload', function(req, res) {
               var fstream;
 
@@ -59,16 +61,17 @@ module.exports = function(app, io){
              //  var a = req.pipe(req.busboy);
              req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
                   console.log("Uploading: " + filename); 
-                  fstream = fs.createWriteStream(__dirname + '/files/' + filename);
+                  // fstream = fs.createWriteStream(__dirname + '/files/' + filename);
 
                   var writestream = gfs.createWriteStream({
                       filename: filename,
                       mode: "w",
                       chunkSize: 1024*4,
                       content_type: mimetype,
-                      root: "fs"
+                      root: "fs",
+                       metadata: {camId:camId}
                   });
-
+                  console.log("file.pipe")
                   file.pipe(writestream);
 
                   writestream.on('close', function () {
